@@ -1,0 +1,118 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS CloudFormation Template for ElasticSearch server instance prerequisites'
+
+Resources:
+  ServerInstanceSSMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+
+      MaxSessionDuration: 3600
+      Description: Required for permissions for SSM
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  ServerInstanceEc2ControlPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: EsServerControlPolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Action:
+          - ec2:TerminateInstances
+          Effect: Allow
+          Resource: 'arn:aws:ec2:*:670000000000:instance/*'
+        - Action:
+          - route53:GetHostedZone
+          - route53:ChangeResourceRecordSets
+          - route53:ChangeTagsForResource
+          Effect: Allow
+          Resource:
+          - arn:aws:route53:::hostedzone/Z0000000000000000000
+          - arn:aws:route53:::healthcheck/*
+
+        - Action:
+          - s3:ListBucket
+          - s3:GetObject
+          - s3:GetObjectAcl
+          - s3:GetObjectTorrent
+          - s3:GetObjectRetention
+          - s3:GetObjectTagging
+          - s3:GetObjectLegalHold
+          - s3:GetObjectVersion
+          Resource:
+          - arn:aws:s3:::internal-obryarddangosd
+          - arn:aws:s3:::internal-obryarddangosd/twitter-analysis/*
+          Effect: Allow
+
+        - Action:
+          - route53:ListHostedZones
+          - route53:ListGeoLocations
+          - route53:GetHostedZoneCount
+          - route53:ListHostedZonesByName
+          Effect: Allow
+          Resource: '*'
+      Roles:
+        - Ref: ServerInstanceSSMRole
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: '18.206.107.24/29'
+        Description: 'Ingress for EC2 instance connect us-east-1'
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: '3.16.146.0/29'
+        Description: 'Ingress for EC2 instance connect us-east-2'
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: '3.120.181.40/29'
+        Description: 'Ingress for EC2 instance connect eu-central-1'
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: '13.48.4.200/30'
+        Description: 'Ingress for EC2 instance connect eu-north-1'
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 6000
+        CidrIp: '62.113.176.0/20'
+        Description: 'DNA Welho CIDR'
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 6000
+        CidrIp: '87.92.128.0/17'
+        Description: 'DNA Welho CIDR'
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 6000
+        CidrIp: '93.106.192.0/18'
+        Description: 'sonera CIDR'
+      - IpProtocol: tcp
+        FromPort: 5601
+        ToPort: 5601
+        CidrIp: '0.0.0.0/0'
+        Description: 'Kibana access anywhere'
+
+  ElasticSearchServerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: ElasticSearchServerInstanceProfile
+      Roles:
+        - Ref: ServerInstanceSSMRole
